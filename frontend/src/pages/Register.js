@@ -1,0 +1,112 @@
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { registerUser, loginUser } from '../utils/api';
+import { useAuth } from '../context/AuthContext';
+import styles from './Auth.module.css';
+
+export default function Register() {
+  const { login } = useAuth();
+  const navigate  = useNavigate();
+  const [form, setForm]     = useState({ name: '', email: '', password: '' });
+  const [error, setError]   = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleChange = (e) =>
+    setForm({ ...form, [e.target.name]: e.target.value });
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    if (form.password.length < 6) {
+      setError('Password must be at least 6 characters.');
+      return;
+    }
+    setLoading(true);
+    try {
+      const { data } = await registerUser(form);
+      if (data.success) {
+        // If backend returns token on register, use it; otherwise auto-login
+        if (data.token) {
+          login(data.user, data.token);
+          navigate('/dashboard');
+        } else {
+          // Auto-login after register
+          const loginRes = await loginUser({ email: form.email, password: form.password });
+          if (loginRes.data.success) {
+            login(loginRes.data.user, loginRes.data.token);
+            navigate('/dashboard');
+          }
+        }
+      } else {
+        setError(data.message || 'Registration failed.');
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Could not register. Try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className={styles.page}>
+      <div className={styles.glow} />
+      <div className={styles.card}>
+        <div className={styles.brand}>
+          <span className={styles.logo}>₹</span>
+          <h1 className={styles.brandName}>ExpenseTrack</h1>
+        </div>
+        <h2 className={styles.title}>Create account</h2>
+        <p className={styles.sub}>Track your expenses for free</p>
+
+        {error && <div className={styles.error}>{error}</div>}
+
+        <form onSubmit={handleSubmit} className={styles.form}>
+          <div className={styles.field}>
+            <label>Full Name</label>
+            <input
+              type="text"
+              name="name"
+              placeholder="John Doe"
+              value={form.name}
+              onChange={handleChange}
+              required
+              autoComplete="name"
+            />
+          </div>
+          <div className={styles.field}>
+            <label>Email</label>
+            <input
+              type="email"
+              name="email"
+              placeholder="you@example.com"
+              value={form.email}
+              onChange={handleChange}
+              required
+              autoComplete="email"
+            />
+          </div>
+          <div className={styles.field}>
+            <label>Password</label>
+            <input
+              type="password"
+              name="password"
+              placeholder="Min. 6 characters"
+              value={form.password}
+              onChange={handleChange}
+              required
+              autoComplete="new-password"
+            />
+          </div>
+          <button type="submit" className={styles.btn} disabled={loading}>
+            {loading ? <span className={styles.spinner} /> : 'Create Account'}
+          </button>
+        </form>
+
+        <p className={styles.switch}>
+          Already have an account?{' '}
+          <Link to="/login">Sign in</Link>
+        </p>
+      </div>
+    </div>
+  );
+}
